@@ -3,43 +3,39 @@ name: Build iOS IPA
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest  # 必须使用 macOS 环境
+    runs-on: macos-latest
     timeout-minutes: 60
 
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v4
 
-      - name: 📦 安装 Godot 和导出模板
+      - name: 📦 安装 Godot 4.7.1 和导出模板
         run: |
-          # 设置你的 Godot 版本（根据实际情况修改）
           GODOT_VERSION="4.7.1"
           GODOT_RELEASE="stable"
 
-          # 下载 Godot 可执行文件
+          # 下载 Godot 编辑器 (macOS)
           echo "📥 下载 Godot ${GODOT_VERSION}..."
           curl -L -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_macos.universal.zip"
           unzip -q godot.zip
-          # 将 Godot 移动到可执行路径
-          sudo mv Godot_mono.app/Contents/MacOS/Godot /usr/local/bin/godot 2>/dev/null || sudo mv Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
+          sudo mv Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
           chmod +x /usr/local/bin/godot
 
-          # 下载导出模板
-          echo "📥 下载导出模板..."
-          curl -L -o export_templates.tpz "https://downloads.tuxfamily.org/godotengine/${GODOT_VERSION}/${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_export_templates.tpz"
+          # 下载 iOS 导出模板（使用你提供的链接）
+          echo "📥 下载 iOS 导出模板..."
+          curl -L -o export_templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_export_templates.tpz"
 
-          # 创建模板目录（这是 Godot 期望的位置）
+          # 安装模板到 Godot 期望的路径
           TEMPLATES_DIR="$HOME/Library/Application Support/Godot/export_templates"
           mkdir -p "${TEMPLATES_DIR}"
-
-          # 解压模板
           unzip -q export_templates.tpz -d "${TEMPLATES_DIR}"
 
-          # 移动模板到版本子目录（Godot 4.x 格式：4.3.stable）
+          # 移动到版本子目录
           VERSION_FOLDER="${TEMPLATES_DIR}/${GODOT_VERSION}.${GODOT_RELEASE}"
           mkdir -p "${VERSION_FOLDER}"
           mv ${TEMPLATES_DIR}/templates/* "${VERSION_FOLDER}/" 2>/dev/null || true
@@ -47,42 +43,33 @@ jobs:
           # 清理
           rm -f export_templates.tpz godot.zip
 
-          echo "✅ Godot 和导出模板安装完成"
-          godot --version
+          echo "✅ Godot 安装完成: $(godot --version)"
 
       - name: 🎮 导出 Xcode 项目
         run: |
-          # 使用 Godot 导出 iOS 项目
-          # "iOS" 是你的导出预设名称，请根据你的项目修改
-          godot --export "iOS" ./ios_project
+          # ⚠️ 将 "iOS" 替换为你在 Godot 中设置的导出预设名称
+          godot --headless --export "iOS" ./ios_project
 
       - name: 🏗️ 使用 Xcode 构建 IPA
         run: |
-          # 进入导出的 Xcode 项目目录
           cd ios_project || exit 1
 
-          # 查找 .xcodeproj 文件
           PROJECT_FILE=$(ls *.xcodeproj 2>/dev/null | head -n 1)
           if [ -z "$PROJECT_FILE" ]; then
-            echo "❌ 未找到 .xcodeproj 文件，导出可能失败"
+            echo "❌ 未找到 .xcodeproj 文件"
             exit 1
           fi
 
           echo "📁 找到项目: $PROJECT_FILE"
 
-          # 使用 xcodebuild 构建
           xcodebuild -project "$PROJECT_FILE" \
             -scheme "$PROJECT_FILE" \
             -configuration Release \
             -derivedDataPath ./build \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            OTHER_CODE_SIGN_FLAGS="--deep" \
             clean build
 
-          # 创建 Payload 目录并打包 IPA
-          echo "📦 打包 IPA..."
+          # 打包 IPA
           mkdir -p Payload
           APP_PATH=$(find ./build -name "*.app" -type d | head -n 1)
           if [ -n "$APP_PATH" ]; then
