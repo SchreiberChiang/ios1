@@ -22,7 +22,7 @@ jobs:
 
           # 下载 Godot 可执行文件
           echo "📥 下载 Godot ${GODOT_VERSION}..."
-          curl -L -o godot.zip "https://downloads.tuxfamily.org/godotengine/${GODOT_VERSION}/${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_macos.universal.zip"
+          curl -L -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_macos.universal.zip"
           unzip -q godot.zip
           # 将 Godot 移动到可执行路径
           sudo mv Godot_mono.app/Contents/MacOS/Godot /usr/local/bin/godot 2>/dev/null || sudo mv Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
