@@ -11,24 +11,25 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: 📥 检出代码
+      - name: 📥 检出代码（含 LFS）
         uses: actions/checkout@v4
+        with:
+          lfs: true   # 关键：拉取 LFS 文件
 
-      - name: 🔍 检查库架构
+      - name: 🔍 检查库文件（验证 LFS 是否生效）
         run: |
           echo "=== 检查 libgodot.a ==="
-          file libgodot.a || true
-          lipo -info libgodot.a || true
+          file wechat1.xcframework/ios-arm64/libgodot.a || true
+          lipo -info wechat1.xcframework/ios-arm64/libgodot.a || true
           echo "=== 检查 libMoltenVK.a ==="
-          file libMoltenVK.a || true
-          lipo -info libMoltenVK.a || true
+          file MoltenVK.xcframework/ios-arm64/libMoltenVK.a || true
+          lipo -info MoltenVK.xcframework/ios-arm64/libMoltenVK.a || true
 
       - name: 🏗️ 使用 Xcode 构建 IPA
         run: |
           PROJECT_FILE="wechat1.xcodeproj"
           SCHEME=$(basename "$PROJECT_FILE" .xcodeproj)
 
-          # 强制指定架构为 arm64（真机），并设置部署目标
           xcodebuild -project "$PROJECT_FILE" \
             -scheme "$SCHEME" \
             -configuration Release \
@@ -39,7 +40,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             clean build
 
-          # 查找生成的 .app
           APP_PATH=$(find ./build -name "*.app" -type d | head -n 1)
           if [ -z "$APP_PATH" ]; then
             APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d -newer "$PROJECT_FILE" | head -n 1)
