@@ -16,7 +16,6 @@ jobs:
 
       - name: 🏗️ 使用 Xcode 构建 IPA
         run: |
-          # 直接使用仓库中已有的 Xcode 项目
           PROJECT_FILE="wechat1.xcodeproj"
           
           if [ ! -d "$PROJECT_FILE" ]; then
@@ -26,17 +25,28 @@ jobs:
 
           echo "📁 找到项目: $PROJECT_FILE"
 
-          # 构建项目 (不使用代码签名)
+          # 自动获取 scheme 名称（取项目文件名去掉 .xcodeproj）
+          SCHEME=$(basename "$PROJECT_FILE" .xcodeproj)
+          echo "📋 使用 scheme: $SCHEME"
+
+          # 执行构建（指定 -derivedDataPath 并搭配 -scheme）
           xcodebuild -project "$PROJECT_FILE" \
+            -scheme "$SCHEME" \
             -configuration Release \
             -derivedDataPath ./build \
             CODE_SIGNING_ALLOWED=NO \
             clean build
 
-          # 打包 IPA
-          mkdir -p Payload
+          # 查找生成的 .app 文件
           APP_PATH=$(find ./build -name "*.app" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            # 如果未在 ./build 找到，尝试在默认 DerivedData 中查找
+            APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d -newer "$PROJECT_FILE" | head -n 1)
+          fi
+
           if [ -n "$APP_PATH" ]; then
+            echo "✅ 找到 .app: $APP_PATH"
+            mkdir -p Payload
             cp -r "$APP_PATH" Payload/
             zip -r -q app.ipa Payload
             echo "✅ IPA 打包完成"
