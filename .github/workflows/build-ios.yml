@@ -14,33 +14,34 @@ jobs:
       - name: 📥 检出代码
         uses: actions/checkout@v4
 
+      - name: 🔍 检查库架构
+        run: |
+          echo "=== 检查 libgodot.a ==="
+          file libgodot.a || true
+          lipo -info libgodot.a || true
+          echo "=== 检查 libMoltenVK.a ==="
+          file libMoltenVK.a || true
+          lipo -info libMoltenVK.a || true
+
       - name: 🏗️ 使用 Xcode 构建 IPA
         run: |
           PROJECT_FILE="wechat1.xcodeproj"
-          
-          if [ ! -d "$PROJECT_FILE" ]; then
-            echo "❌ 未找到 Xcode 项目: $PROJECT_FILE"
-            exit 1
-          fi
-
-          echo "📁 找到项目: $PROJECT_FILE"
-
-          # 自动获取 scheme 名称（取项目文件名去掉 .xcodeproj）
           SCHEME=$(basename "$PROJECT_FILE" .xcodeproj)
-          echo "📋 使用 scheme: $SCHEME"
 
-          # 执行构建（指定 -derivedDataPath 并搭配 -scheme）
+          # 强制指定架构为 arm64（真机），并设置部署目标
           xcodebuild -project "$PROJECT_FILE" \
             -scheme "$SCHEME" \
             -configuration Release \
             -derivedDataPath ./build \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            IPHONEOS_DEPLOYMENT_TARGET=13.0 \
             CODE_SIGNING_ALLOWED=NO \
             clean build
 
-          # 查找生成的 .app 文件
+          # 查找生成的 .app
           APP_PATH=$(find ./build -name "*.app" -type d | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            # 如果未在 ./build 找到，尝试在默认 DerivedData 中查找
             APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d -newer "$PROJECT_FILE" | head -n 1)
           fi
 
